@@ -1,4 +1,4 @@
-import {{cookiecutter.underscored}} as package
+import mini_transcript_search as package
 
 
 def test_true_is_true():

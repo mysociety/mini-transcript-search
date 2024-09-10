@@ -1,5 +1,5 @@
 {
-	"name": "{{cookiecutter.underscored}}",
+	"name": "mini_transcript_search",
 	"build": {
 		"dockerfile": "../Dockerfile"
 	},
