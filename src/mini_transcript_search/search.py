@@ -102,11 +102,11 @@ class SearchResult(BaseModel):
             )
         return pd.DataFrame(rows)
 
-    def json(self):
+    def to_json(self):
         return self.model_dump_json(indent=2)
 
     def to_path(self, path: Path):
-        path.write_text(self.json())
+        path.write_text(self.to_json())
 
 
 def cosine_distance(vector1: np.ndarray, vector2: np.ndarray) -> float:
@@ -217,7 +217,7 @@ class ModelHandler:
         if n:
             df = df.head(n)
 
-        records = df.to_dict(orient="records")
+        records = df.to_dict(orient="records")  # type: ignore
 
         matches = []
         for r in records:
