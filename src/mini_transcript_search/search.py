@@ -148,6 +148,15 @@ def iter_headings_and_paragraphs(transcript: Transcript) -> Iterator[tuple[str, 
                     s_id,
                     str(paragraph).strip(),
                 )
+                # split on sentences and yield that too
+                sentences = str(paragraph).replace("hon.", "hon").split(".")
+                for i, sentence in enumerate(sentences):
+                    if sentence.strip():
+                        yield (
+                            f"{s_id}.{i}",
+                            sentence.strip(),
+                        )
+
         elif isinstance(speech, (MinorHeading, MajorHeading, OralHeading)):
             yield speech.id, str(speech)
 
