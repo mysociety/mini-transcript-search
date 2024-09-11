@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 from typing import Annotated, Optional, Union
 
 import typer
@@ -36,6 +37,7 @@ def search(
     model_id: str = default_model,
     use_local_model: bool = True,
     override_stored: bool = False,
+    dest: Optional[Path] = None,
 ):
     handler = ModelHandler(
         model_id=model_id,
@@ -57,7 +59,21 @@ def search(
         transcript_type=transcript_type,
     )
 
-    typer.echo(results.json())
+    if dest:
+        # if extentsion is json
+        if dest.suffix == ".json":
+            results.to_path(dest)
+        elif dest.suffix == ".csv":
+            results.df().to_csv(dest, index=False)
+        elif dest.suffix == ".xlsx":
+            results.df().to_excel(dest, index=False)
+        elif dest.suffix == ".parquet":
+            results.df().to_parquet(dest, index=False)
+        else:
+            raise ValueError(f"Unsupported file type: {dest.suffix}")
+
+    else:
+        typer.echo(results.json())
 
 
 if __name__ == "__main__":
