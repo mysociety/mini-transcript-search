@@ -167,9 +167,15 @@ def speech_from_id(
 ):
     speech_id, para_id = id.split("#") if "#" in id else (id, None)
     id_lookup = get_id_lookup(date, chamber, transcript_type)
-    result = id_lookup.get(speech_id[:-2])
+    final_part = speech_id.split("/")[-1]
+    final_part_dots = final_part.split(".")
+
+    # date, major, minor (and then the sentence we want to remove)
+    if len(final_part_dots) > 3:
+        speech_id = ".".join(final_part_dots[:3])
+    result = id_lookup.get(speech_id)
     if result is None:
-        raise ValueError(f"Speech with id {id} not found")
+        raise ValueError(f"Speech with id {speech_id} not found")
     return result
 
 
