@@ -18,6 +18,7 @@ from mysoc_validator.models.transcripts import (
 )
 from mysoc_validator.utils.parlparse.downloader import get_latest_for_date
 from pydantic import BaseModel, computed_field
+from tqdm import tqdm
 
 from .inference import Inference
 
@@ -166,7 +167,13 @@ def speech_from_id(
 ):
     speech_id, para_id = id.split("#") if "#" in id else (id, None)
     id_lookup = get_id_lookup(date, chamber, transcript_type)
-    return id_lookup[speech_id]
+    result = id_lookup.get(speech_id)
+    while speech_id.endswith(".0") and result is None:
+        speech_id = speech_id[:-2]
+        result = id_lookup.get(speech_id)
+    if result is None:
+        raise ValueError(f"Speech with id {id} not found")
+    return result
 
 
 @dataclass
@@ -179,6 +186,8 @@ class ModelHandler:
     use_local_model: bool = False
     override_stored: bool = False
     _model: Optional[Inference] = None
+    silent: bool = False
+    storage_path: Path = Path("data")
 
     def get_inference(self) -> Inference:
         if self._model is None:
@@ -264,7 +273,7 @@ class ModelHandler:
             current_date += datetime.timedelta(days=1)
 
         dfs = []
-        for date in dates:
+        for date in tqdm(dates, disable=self.silent):
             try:
                 df = self.get_transcript_parquet(
                     date,
@@ -286,7 +295,10 @@ class ModelHandler:
         transcript_type: TranscriptType = TranscriptType.DEBATES,
     ) -> pd.DataFrame:
         transcript_path = get_latest_for_date(
-            date, transcript_type=transcript_type, chamber=chamber
+            date,
+            transcript_type=transcript_type,
+            chamber=chamber,
+            download_path=self.storage_path,
         )
         parquet_path = transcript_path.with_suffix(".parquet")
         if not parquet_path.exists() or self.override_stored:
