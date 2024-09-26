@@ -167,10 +167,7 @@ def speech_from_id(
 ):
     speech_id, para_id = id.split("#") if "#" in id else (id, None)
     id_lookup = get_id_lookup(date, chamber, transcript_type)
-    result = id_lookup.get(speech_id)
-    while speech_id.endswith(".0") and result is None:
-        speech_id = speech_id[:-2]
-        result = id_lookup.get(speech_id)
+    result = id_lookup.get(speech_id[:-2])
     if result is None:
         raise ValueError(f"Speech with id {id} not found")
     return result
