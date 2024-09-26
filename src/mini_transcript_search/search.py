@@ -275,7 +275,8 @@ class ModelHandler:
                 continue
             df["date"] = date.isoformat()
             dfs.append(df)
-
+        if len(dfs) == 0:
+            raise FileNotFoundError("No transcripts found for given date range")
         return pd.concat(dfs)
 
     def get_transcript_parquet(
