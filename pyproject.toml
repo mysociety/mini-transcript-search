@@ -23,7 +23,7 @@ fastembed = "^0.3.6"
 numpy = "1.26.4"
 pandas = "^2.2.2"
 requests = "^2.32.3"
-pyarrow = "^17.0.0"
+pyarrow = "^11.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.2"
