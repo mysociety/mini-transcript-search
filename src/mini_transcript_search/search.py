@@ -4,7 +4,7 @@ import datetime
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import ClassVar, Iterator, NamedTuple, Optional, Type, Union
+from typing import ClassVar, Iterator, Literal, NamedTuple, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -45,6 +45,45 @@ def twfy_alias(chamber: Chamber) -> str:
 class DateRange(NamedTuple):
     start_date: datetime.date
     end_date: datetime.date
+
+
+@dataclass
+class Criteria:
+    search_queries: list[str]
+    score_type: Literal["nearest", "first", "agg", "avg"] = "first"
+    search_vectors: Optional[list[np.ndarray]] = None
+
+    def __str__(self):
+        return self.search_queries[0]
+
+    def calculate_search_vectors(self, inference: Inference):
+        if self.score_type == "first" and len(self.search_queries) > 1:
+            raise ValueError("Cannot use 'first' score type with multiple queries")
+
+        self.search_vectors = inference.query(self.search_queries)
+
+        if self.score_type == "avg":
+            self.search_vectors = [np.mean(self.search_vectors, axis=0)]
+
+    def get_single_distance(self, vector: np.ndarray) -> float:
+        if not self.search_vectors:
+            raise ValueError("No search vectors calculated")
+
+        matches = []
+        for search_vector in self.search_vectors:
+            matches.append(cosine_distance(search_vector, vector))
+        # for first, this is easy
+        if self.score_type in ["first", "avg"]:
+            return matches[0]
+
+        # for nearest, we want to return the closest distance in any of the search queries
+        elif self.score_type == "nearest":
+            return min(matches)
+
+        elif self.score_type == "agg":
+            return np.sqrt(sum([x**2 for x in matches]))
+        else:
+            raise ValueError(f"Invalid score type {self.score_type}")
 
 
 class Match(BaseModel):
@@ -202,7 +241,7 @@ class ModelHandler:
 
     def query(
         self,
-        query: str,
+        query: Union[Criteria, str],
         *,
         threshold: float = 1.0,
         n: Optional[int] = None,
@@ -217,13 +256,16 @@ class ModelHandler:
         or a int that will take the top n results.
 
         """
-        search_query_vector = self.get_inference().query([query])[0]
+
+        if isinstance(query, str):
+            query = Criteria(search_queries=[query], score_type="first")
+
+        query.calculate_search_vectors(self.get_inference())
 
         df = self.get_multi_day_vector(date_range, chamber, transcript_type)
 
-        df["cosine_similarity"] = df["embedding"].apply(
-            lambda x: cosine_distance(search_query_vector, x)
-        )
+        df["cosine_similarity"] = df["embedding"].apply(query.get_single_distance)
+
         df = df.sort_values(by="cosine_similarity", ascending=True)
 
         df = df[df["cosine_similarity"] < threshold]
@@ -254,7 +296,7 @@ class ModelHandler:
             )
 
         return SearchResult(
-            search_query=query,
+            search_query=str(query),
             threshold=threshold,
             date_range=date_range,
             chamber=chamber,
