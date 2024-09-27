@@ -138,6 +138,7 @@ class SearchResult(BaseModel):
                     "chamber": self.chamber,
                     "transcript_type": self.transcript_type,
                     "speech_id": match.speech_id,
+                    "debate_url": match.debate_url,
                 }
             )
         return pd.DataFrame(rows)
