@@ -35,14 +35,48 @@ class Inference:
                     self._model = TextEmbedding(model_name=self.model_id)
         return list(self._model.embed(texts))  # type: ignore
 
-    def query_remote(self, texts: list[str]) -> list[NDArray[np.float64]]:
+    def query_remote(
+        self, texts: list[str], chunk_size: int = 3000
+    ) -> list[NDArray[np.float64]]:
+        # if the overall text of all items is more than chunk_size characters, split up the array and
+        # recombine after
+        total_length = sum(len(text) for text in texts)
+        if total_length > chunk_size:
+            embeddings = []
+            chunk = []
+            chunk_length = 0
+            for text in texts:
+                if chunk_length + len(text) > chunk_size:
+                    embeddings.extend(self.query_remote_with_retries(chunk))
+                    chunk = [text]
+                    chunk_length = len(text)
+                else:
+                    chunk.append(text)
+                    chunk_length += len(text)
+            if chunk:
+                embeddings.extend(self.query_remote_with_retries(chunk))
+            return embeddings
+        else:
+            return self.query_remote_with_retries(texts)
+
+    def query_remote_with_retries(self, texts: list[str]) -> list[NDArray[np.float64]]:
         # sometimes a model needs to warm up
-        # use query_remote_api with a ten second sleep if a failure, retry once
-        try:
-            return self.query_remote_api(texts)
-        except requests.JSONDecodeError:
-            time.sleep(10)
-            return self.query_remote_api(texts)
+        # use query_remote_api with retries and increasing delays
+        retries = 5
+        delay = 5  # initial delay in seconds
+        for attempt in range(retries):
+            try:
+                return self.query_remote_api(texts)
+            except requests.JSONDecodeError:
+                print(f"Attempt {attempt + 1} failed with JSONDecodeError.")
+                print(texts)
+                print(f"data length: {len(texts)}")
+                if attempt < retries - 1:
+                    time.sleep(delay)
+                    delay *= 2  # double the delay for the next retry
+                else:
+                    raise
+        raise RuntimeError("Failed to get embeddings after multiple retries.")
 
     def query_remote_api(self, texts: list[str]) -> list[NDArray[np.float64]]:
         api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}/pipeline/feature-extraction"
