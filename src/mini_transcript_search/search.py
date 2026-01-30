@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 from .inference import Inference
 
-default_model = "BAAI/bge-small-en-v1.5"
+default_model = "thenlper/gte-large"
 
 
 def twfy_alias(chamber: Chamber) -> str:
