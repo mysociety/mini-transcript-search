@@ -1,4 +1,5 @@
 import os
+import time
 from contextlib import redirect_stderr
 from typing import Optional
 
@@ -35,6 +36,15 @@ class Inference:
         return list(self._model.embed(texts))  # type: ignore
 
     def query_remote(self, texts: list[str]) -> list[NDArray[np.float64]]:
+        # sometimes a model needs to warm up
+        # use query_remote_api with a ten second sleep if a failure, retry once
+        try:
+            return self.query_remote_api(texts)
+        except requests.JSONDecodeError:
+            time.sleep(10)
+            return self.query_remote_api(texts)
+
+    def query_remote_api(self, texts: list[str]) -> list[NDArray[np.float64]]:
         api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}/pipeline/feature-extraction"
         headers = {"Authorization": f"Bearer {self.hf_token}"}
         response = requests.post(
