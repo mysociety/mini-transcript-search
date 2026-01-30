@@ -35,7 +35,7 @@ class Inference:
         return list(self._model.embed(texts))  # type: ignore
 
     def query_remote(self, texts: list[str]) -> list[NDArray[np.float64]]:
-        api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}/pipeline/feature-extraction/"
+        api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}/pipeline/feature-extraction"
         headers = {"Authorization": f"Bearer {self.hf_token}"}
         response = requests.post(
             api_url,
