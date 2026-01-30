@@ -36,24 +36,12 @@ class Inference:
         return list(self._model.embed(texts))  # type: ignore
 
     def query_remote(
-        self, texts: list[str], chunk_size: int = 3000
+        self, texts: list[str], chunk_size: int = 100
     ) -> list[NDArray[np.float64]]:
-        # if the overall text of all items is more than chunk_size characters, split up the array and
-        # recombine after
-        total_length = sum(len(text) for text in texts)
-        if total_length > chunk_size:
+        if len(texts) > chunk_size:
             embeddings = []
-            chunk = []
-            chunk_length = 0
-            for text in texts:
-                if chunk_length + len(text) > chunk_size:
-                    embeddings.extend(self.query_remote_with_retries(chunk))
-                    chunk = [text]
-                    chunk_length = len(text)
-                else:
-                    chunk.append(text)
-                    chunk_length += len(text)
-            if chunk:
+            for i in range(0, len(texts), chunk_size):
+                chunk = texts[i : i + chunk_size]
                 embeddings.extend(self.query_remote_with_retries(chunk))
             return embeddings
         else:
