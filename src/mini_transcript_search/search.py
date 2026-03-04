@@ -164,9 +164,18 @@ def cosine_distance(vector1: np.ndarray, vector2: np.ndarray) -> float:
 
 @lru_cache
 def get_id_lookup(
-    date: datetime.date, chamber: Chamber, transcript_type: TranscriptType
+    date: datetime.date,
+    chamber: Chamber,
+    transcript_type: TranscriptType,
+    download_path: Optional[Path] = None,
 ) -> dict[str, Union[Speech, MinorHeading, MajorHeading, OralHeading]]:
-    t = Transcript.from_parlparse(date, chamber, transcript_type)
+    transcript_path = get_latest_for_date(
+        date,
+        chamber=chamber,
+        transcript_type=transcript_type,
+        download_path=download_path,
+    )
+    t = Transcript.from_xml_path(transcript_path)
     id_lookup = {
         x.id: x
         for x in t.iter_has_text()
@@ -203,10 +212,14 @@ def iter_headings_and_paragraphs(transcript: Transcript) -> Iterator[tuple[str, 
 
 
 def speech_from_id(
-    date: datetime.date, id: str, chamber: Chamber, transcript_type: TranscriptType
+    date: datetime.date,
+    id: str,
+    chamber: Chamber,
+    transcript_type: TranscriptType,
+    download_path: Optional[Path] = None,
 ):
     speech_id, para_id = id.split("#") if "#" in id else (id, None)
-    id_lookup = get_id_lookup(date, chamber, transcript_type)
+    id_lookup = get_id_lookup(date, chamber, transcript_type, download_path)
     final_part = speech_id.split("/")[-1]
     prior_parts = "/".join(speech_id.split("/")[:-1])
     final_part_dots = final_part.split(".")
@@ -278,7 +291,13 @@ class ModelHandler:
         matches = []
         for r in records:
             date_obj = datetime.date.fromisoformat(r["date"])
-            rel_speech = speech_from_id(date_obj, r["id"], chamber, transcript_type)
+            rel_speech = speech_from_id(
+                date_obj,
+                r["id"],
+                chamber,
+                transcript_type,
+                self.storage_path,
+            )
             if isinstance(rel_speech, Speech):
                 speaker_name = rel_speech.speakername
                 person_id = rel_speech.person_id
