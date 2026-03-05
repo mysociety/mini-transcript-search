@@ -262,12 +262,18 @@ class ModelHandler:
         date_range: DateRange,
         chamber: Chamber = Chamber.COMMONS,
         transcript_type: TranscriptType = TranscriptType.DEBATES,
+        return_paragraph: bool = False,
     ):
         """
         Run a query against the transcripts in the given date range.
 
         Threshold can either be an int and will filter the cosine similarity.
         or a int that will take the top n results.
+
+        If return_paragraph is True, the matched_text in each result will be
+        the full paragraph containing the matching sentence rather than the
+        sentence itself. When multiple sentences from the same paragraph match,
+        only the one with the best (lowest) distance is kept.
 
         """
 
@@ -282,7 +288,29 @@ class ModelHandler:
 
         df = df.sort_values(by="cosine_similarity", ascending=True)
 
+        if return_paragraph:
+            # Build id→text lookup from the full data before any filtering,
+            # so paragraph entries aren't accidentally excluded by the threshold.
+            para_text_lookup = df.set_index("id")["text"].to_dict()
+
         df = df[df["cosine_similarity"] < threshold]
+
+        if return_paragraph:
+            # Derive the paragraph ID by stripping the trailing sentence index
+            # (.N). If the stripped ID is not in the lookup the row is already
+            # at paragraph/heading level, so keep it unchanged.
+            def to_para_id(sid: str) -> str:
+                candidate = sid.rsplit(".", 1)[0]
+                return candidate if candidate in para_text_lookup else sid
+
+            df = df.copy()
+            df["para_id"] = df["id"].apply(to_para_id)
+            # df is sorted ascending; groupby.first() keeps the best score
+            df = df.groupby(["date", "para_id"], as_index=False, sort=False).first()
+            df = df.sort_values("cosine_similarity", ascending=True)
+            df["text"] = df["para_id"].map(para_text_lookup).fillna(df["text"])
+            df["id"] = df["para_id"]
+
         if n:
             df = df.head(n)
 
